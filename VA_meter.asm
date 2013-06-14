@@ -3,6 +3,9 @@
 .include "macros.inc" // общие макроопределения
 .list
 
+.EQU CPUfreq = 8000000
+
+
 .def temp 			= R1
 
 
@@ -63,8 +66,37 @@ set_io DDRB, 0b11111111  //Все на вывод
 set_io DDRC, 0b00111111  //старшие разряды не реализованы на выход
 set_io DDRD, 0b11111111  //RX-TX настроены как ВыXОДЫ, при включении приемопередатчика их функция будет иметь приоритет над настройкой порта.
 
+rcall LCD_init
+
+.def char_count = R2
+.def loop8		= R18
 
 MAIN_LOOP:
 
+ rcall LCD_goto_line1
+// вывод в цикле очередные 8 символов
+ LDI loop8, 8
+ml_line1loop:
+ mov ACCUM, char_count
+ rcall LCD_send_char
+ inc char_count
+ dec loop8
+ BRNE ml_line1loop
+
+
+ rcall LCD_goto_line2
+// вывод в цикле очередные 8 символов
+ LDI loop8, 8
+ml_line2loop:
+ mov ACCUM, char_count
+ rcall LCD_send_char
+ inc char_count
+ dec loop8
+ BRNE ml_line2loop
+
+// задержка ~ 1 сек.
 
 RJMP MAIN_LOOP
+
+.include "Indicator_def.inc"
+.include "Indicator_code.inc" // Подпрограммы работы с ЖК-индикатором на основе KS7066
