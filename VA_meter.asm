@@ -9,13 +9,18 @@
 .def temp 			= R1
 
 
-.def ACCUM = R16
-.def tempi = R17
+.def ACCUM  = R16
+.def ACCUMH = R17
+.def tempi  = R18
+.def tempih = R19
 
 
 ; ###########################################################################################
 ;Не оперативные переменные, располагаются в RAM
 .dseg
+
+Volts_BCD:	.BYTE 3
+Amps_BCD:	.BYTE 3
 
 ; ###########################################################################################
 ; ###########################################################################################
@@ -57,46 +62,51 @@ RESET:
  out	SPL,	ACCUM
 
 // Инициализация
-set_io PORTB, 0 // все начальные состояния портов - по нулям.
-set_io PORTC, 0
-set_io PORTD, 0
+ set_io PORTB, 0 // все начальные состояния портов - по нулям.
+ set_io PORTC, 0
+ set_io PORTD, 0
 //If DDxn is written logic one , Pxn is configured as an output. 
 //If DDxn is written logic zero, Pxn is configured as an input.
-set_io DDRB, 0b11111111  //Все на вывод
-set_io DDRC, 0b00111111  //старшие разряды не реализованы на выход
-set_io DDRD, 0b11111111  //RX-TX настроены как ВыXОДЫ, при включении приемопередатчика их функция будет иметь приоритет над настройкой порта.
+ set_io DDRB, 0b11111111  //Все на вывод
+ set_io DDRC, 0b00111111  //старшие разряды не реализованы на выход
+ set_io DDRD, 0b11111111  //RX-TX настроены как ВыXОДЫ, при включении приемопередатчика их функция будет иметь приоритет над настройкой порта.
 
-rcall LCD_init
+ rcall	LCD_init
 
-.def char_count = R2
-.def loop8		= R18
+ rcall	LCD_goto_line1
+
+ LDI	ACCUM, 0x20
+ rcall	LCD_send_char
+ 
+
+ LDI	ACCUM, low(12345)
+ LDI	ACCUMH, high(12345)
+
+ LDI	XL, low(Volts_BCD)
+ LDI	XH, high(Volts_BCD)
+
+ rcall bin2bcd
+
+ LD		ACCUM, -X
+ ANDI	ACCUM, 0x0F
+ SUBI	ACCUM, -48
+ rcall	LCD_send_char
+
+ LD		ACCUM, -X
+ ANDI	ACCUM, 0x0F
+ SUBI	ACCUM, -48
+ rcall	LCD_send_char
+
+ LD		ACCUM, -X
+ ANDI	ACCUM, 0x0F
+ SUBI	ACCUM, -48
+ rcall	LCD_send_char
 
 MAIN_LOOP:
 
- rcall LCD_goto_line1
-// вывод в цикле очередные 8 символов
- LDI loop8, 8
-ml_line1loop:
- mov ACCUM, char_count
- rcall LCD_send_char
- inc char_count
- dec loop8
- BRNE ml_line1loop
-
-
- rcall LCD_goto_line2
-// вывод в цикле очередные 8 символов
- LDI loop8, 8
-ml_line2loop:
- mov ACCUM, char_count
- rcall LCD_send_char
- inc char_count
- dec loop8
- BRNE ml_line2loop
-
-// задержка ~ 1 сек.
 
 RJMP MAIN_LOOP
 
 .include "Indicator_def.inc"
-.include "Indicator_code.inc" // Подпрограммы работы с ЖК-индикатором на основе KS7066
+.include "Indicator_code.inc"	// Подпрограммы работы с ЖК-индикатором на основе KS7066
+.include "bin2BCD.inc"			// Подпрограмма преобразования числа BIN-BCD для последующего вывода на индикатор
