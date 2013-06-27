@@ -20,10 +20,8 @@ ADC_measure: // ACCUM = № канала
 
 adcm_wait:
  LDS	ACCUM,	ADCSRA // The ADSC bit will be read as one during a conversion
- SBRC ACCUM, ADSC
- rjmp adcm_wait
-
- 
+ SBRC	ACCUM, ADSC
+ rjmp	adcm_wait
 
  LDS	ACCUM,	ADCL
  LDS	ACCUMH,	ADCH

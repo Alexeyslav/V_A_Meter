@@ -23,7 +23,7 @@
 .endmacro
 
 .macro set_io  ; использовать регистр ACCUM для загрузки константы в порт
-LDI   ACCUM,  @1
+  LDI   ACCUM,  @1
   .If @0<=0x3F
   OUT   @0, ACCUM
   .else

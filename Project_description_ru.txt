@@ -32,7 +32,7 @@
 
  PB0 - E
  PB1 - RS
- PB2 - R/W ?
+ PB2 - подсветка дисплея
  PB3 -
  PB4 - D0
  PB5 - D1
@@ -44,7 +44,7 @@
  PD1 - TX
  PD2 -
 
- PD3 -
+ PD3 - ZERO_SIGNAL
  PD4 -
 
  PD5 -

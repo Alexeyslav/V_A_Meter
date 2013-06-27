@@ -1,12 +1,12 @@
-#define	 lcd_data_port PORTB
-#define  lcd_enable PB0 
-#define  lcd_rs PB1
- 
- 
-#define lcd_chip_sel	SBI PORTB, lcd_enable
-#define lcd_chip_desel	CBI PORTB, lcd_enable
-#define lcd_cmd			CBI PORTB, lcd_rs
-#define lcd_data		SBI PORTB, lcd_rs
+; В основной программе необходимо ввести определения(#define):
+; lcd_data_port - имя порта для шины данных индикатора (будут заняты биты 4..7)
+; lcd_enable - номер бита порта для сигнала "данные на шине" индикатора
+; lcd_rs - номер бита порта для сигнала "команда/данные" индикатора
+
+#define lcd_chip_sel	SBI lcd_data_port, lcd_enable
+#define lcd_chip_desel	CBI lcd_data_port, lcd_enable
+#define lcd_cmd			CBI lcd_data_port, lcd_rs
+#define lcd_data		SBI lcd_data_port, lcd_rs
 
 
 .EQU LCD_data_mask = 0b11110000
@@ -19,12 +19,4 @@
 .EQU LCD_cmd_displayon	= 0b00001100 // 37us, without cursor
 .EQU LCD_cmd_displayoff	= 0b00001000
 .EQU LCD_cmd_func4b		= 0b00101000 // 37us, 2-line display
- 
-; PB0 - E
-; PB1 - RS
-; PB2 - BEEP
-; PB3 - emergency_stop
-; PB4 - D0
-; PB5 - D1
-; PB6 - D2
-; PB7 - D3
+
