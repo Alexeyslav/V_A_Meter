@@ -49,3 +49,5 @@ Amps_measure:
  LDI ACCUM, Amps_input
  rcall ADC_measure
 RET
+
+
