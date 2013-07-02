@@ -13,18 +13,17 @@
 // --------------------------------------------------------------------
 LCD_output_volts: //ACCUMH:ACCUM - напряжение в двоичной форме
 
-rcall LCD_goto_line1
-
 LDI	XL, low(Volts_BCD)
 LDI	XH, high(Volts_BCD)
 
 rcall bin2bcd
 
+rcall LCD_goto_line1
 // от младшего разряда к старшему после Bin2BCD X указывает на старший разряд числа
 
 // первый разряд
  LD		ACCUM, -X
- rcall	LCD_send_char 
+ number_output
 
 // второй разряд
  LD		ACCUM, -X
@@ -64,18 +63,18 @@ RET
 // -------------------------------------------------------------
 LCD_output_amps: //ACCUMH:ACCUM - ток в двоичной форме
 
-rcall LCD_goto_line2
-
 LDI	XL, low(Amps_BCD)
 LDI	XH, high(Amps_BCD)
 
 rcall bin2bcd
 
+rcall LCD_goto_line2
+
 // от младшего разряда к старшему после Bin2BCD X указывает на старший разряд числа
 
 // первый разряд
  LD		ACCUM, -X
- rcall	LCD_send_char
+ number_output
 
 // разделитель дробной части 
  char_output '.'
