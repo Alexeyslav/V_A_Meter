@@ -72,26 +72,29 @@ rcall LCD_goto_line2
 
 // от младшего разряда к старшему после Bin2BCD X указывает на старший разряд числа
 
-// первый разряд
+// Старший байт пропускаем
  LD		ACCUM, -X
- number_output
 
-// разделитель дробной части 
- char_output '.'
-
-// первый дробный разряд
+// первый разряд
  LD		ACCUM, -X
  push	ACCUM
  swap	ACCUM // Сначала надо вывести старший разряд!
  number_output
- 
-// второй дробный разряд
+
+// разделитель дробной части 
+ char_output '.' 
+
+// первый дробный разряд
  pop	ACCUM
  number_output 
 
-// третий дробный разряд
+// второй дробный разряд
  LD		ACCUM, -X
- swap	ACCUM // вывести старший разряд!
+ push	ACCUM
+ swap	ACCUM // вывести сначала старшую половину байта
+ number_output
+// третий дробный разряд 
+ POP	ACCUM
  number_output
 
  char_output ' '
