@@ -13,14 +13,6 @@
 // --------------------------------------------------------------------
 LCD_output_volts: //ACCUMH:ACCUM - напр€жение в двоичной форме
 
- LDI	ACCUM, 0x06		; auto-inc cursor, display not shift. 
- rcall	LCD_send_cmd  	; cmd = Entry mode set
- rcall	LCD_wait_fast
-
- LDI	ACCUM, 0x0C ; включить дисплей!
- rcall	LCD_send_cmd
- rcall	LCD_wait_fast
-
  LDI	XL, low(Volts_BCD)
  LDI	XH, high(Volts_BCD)
 
