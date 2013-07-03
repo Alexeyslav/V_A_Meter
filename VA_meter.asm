@@ -32,6 +32,7 @@
 .equ	zero_level	=	0
 
 .def last_period_start_time	=	R9 ; Время прошедшее с последнего начала периода, в интервалах по 65мс.
+.def summ_counter			=	R10 ; Количество элементов накопленных в суммах токов и напряжений.
 
 .def ACCUM  = R16
 .def ACCUMH = R17
@@ -45,7 +46,8 @@
 
 Volts_BCD:	.BYTE 3
 Amps_BCD:	.BYTE 3
-
+Volts_summ:	.BYTE 2
+Amps_summ:	.BYTE 2
 
 
 
@@ -278,7 +280,11 @@ no_AC_timeout:
 
 AC_timeout_check_end:
 
- go_if_clear flags, zero_level, no_zero_int ; <признак начала измерения>
+ go_if_clear flags, zero_level, no_zero_intj ; <признак начала измерения>
+
+rjmp no_zero_int1 ; Конструкция по преодолению предела перехода для BRTC **** TODO **** вынести весь этот алгоритм в отдельный инклуд!!! Это будет в качестве рефакторинга
+no_zero_intj: rjmp no_zero_int
+no_zero_int1:
   // Пришел сигнал начала периода
   CLI 
   disable_timer
@@ -286,10 +292,44 @@ AC_timeout_check_end:
 ; сбросить счетчик таймаута
   CLR last_period_start_time
 
-; +есть признак: 
-; + [ остановить таймер измерения тока, запретить прерывания
-; +   amps_summh:amps_summl - сумма значений токов за период
+;	количество просуммированных элементов >= 16
+ inc	summ_counter
+ mov	ACCUM, summ_counter
 
+ CPI	ACCUM, 16
+ BRNE	continue_measure
+
+  LDI	ACCUM, 0x06		; auto-inc cursor, display not shift.	;**** DEBUG ****
+  rcall	LCD_send_cmd  	; cmd = Entry mode set					;**** DEBUG ****
+  rcall	LCD_wait_fast											;**** DEBUG ****
+
+  LDI	ACCUM, 0x0C ; включить дисплей!							;**** DEBUG ****
+  rcall	LCD_send_cmd											;**** DEBUG ****
+  rcall	LCD_wait_fast											;**** DEBUG ****
+
+  LDS	ACCUM,	Volts_summ
+  LDS	ACCUMH,	Volts_summ+1
+  rcall	LCD_output_volts
+
+  LDS	ACCUM,	Amps_summ
+  LDS	ACCUMH,	Amps_summ+1
+;	   сумму тока разделить на 16 и вывести на индикатор
+  lsr	ACCUMH ; 4-х кратный сдвиг вправо, = деление на 16
+  ror	ACCUM
+  lsr	ACCUMH ;2
+  ror	ACCUM
+  lsr	ACCUMH ;3
+  ror	ACCUM
+  lsr	ACCUMH ;4
+  ror	ACCUM
+  
+  rcall	LCD_output_amps
+; Очистить суммы.
+ clr	summ_counter
+ clr_to_ram Volts_summ
+ clr_to_ram Amps_summ
+
+continue_measure:
 ;    посчитать из суммы мгновенных значений среднее значение тока(разделить на 16) и сохранить как среднее значение тока
   lsr	amps_summh     // 4-х кратный сдвиг вправо, = деление на 16
   ror	amps_summl
@@ -304,23 +344,16 @@ AC_timeout_check_end:
   ror	amps_summl
 ; среднее значение тока за период находится тут: amps_summh:amps_summl
 
-  rcall Volt_measure
-
-;   суммировать измеренное напряжение
-;	суммировать среднее значение тока
-;	количество просуммированных элементов >= 16
-;	 [ сбросить счетчик элементов
-;	   сумму тока и напряжения разделить на 16 и вывести на индикатор 
 ;	   средний ток больше 20мА - включить светодиод "заряд"
 ;       [вывести BCD-значения напряжения и тока в UART или SPI, опционально]
-;	 ]
-  rcall	LCD_output_volts
 
-  mov	ACCUM , amps_summl
-  mov	ACCUMH, amps_summh
-  
-  rcall	LCD_output_amps
-  
+  rcall Volt_measure
+
+;   суммировать измеренное напряжение ACCUMH:ACCUM в ячейки памяти с адресом Volts_summ
+  summ_to_ram Volts_summ, ACCUMH, ACCUM
+;	суммировать среднее значение тока amps_summh:amps_summl в ячейки памяти с адресом Amps_summ
+  summ_to_ram Amps_summ, amps_summh, amps_summl
+
 ; Подготовка к следующему измерению среднего тока за период.  
   CLR	amps_summh
   CLR	amps_summl
