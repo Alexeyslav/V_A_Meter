@@ -13,12 +13,20 @@
 // --------------------------------------------------------------------
 LCD_output_volts: //ACCUMH:ACCUM - напряжение в двоичной форме
 
-LDI	XL, low(Volts_BCD)
-LDI	XH, high(Volts_BCD)
+ LDI	ACCUM, 0x06		; auto-inc cursor, display not shift. 
+ rcall	LCD_send_cmd  	; cmd = Entry mode set
+ rcall	LCD_wait_fast
 
-rcall bin2bcd
+ LDI	ACCUM, 0x0C ; включить дисплей!
+ rcall	LCD_send_cmd
+ rcall	LCD_wait_fast
 
-rcall LCD_goto_line1
+ LDI	XL, low(Volts_BCD)
+ LDI	XH, high(Volts_BCD)
+
+ rcall bin2bcd
+
+ rcall LCD_goto_line1
 // от младшего разряда к старшему после Bin2BCD X указывает на старший разряд числа
 
 // первый разряд

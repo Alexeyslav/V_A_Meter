@@ -9,6 +9,7 @@
 ; Константы - определение каналов АЦП 
 .EQU Volt_input = 0
 .EQU Amps_input = 1
+.EQU AC_timeout = 5; 4 // Количество периодов таймера timer1 до детектирования состояния потери питающего напряжения. 
 
 ; Определения портов
 #define	lcd_data_port	PORTB // биты 4..7 порта отведены под шину данных индикатора
@@ -24,13 +25,13 @@
 
 ; Регистры
 .def temp 			=	R1
-.def amps_samples_counter = R2	// Interrupt only! don`t use if timer2 enabled!
-.def amps_summl		=	R3		// Interrupt only! don`t use if timer2 enabled!
-.def amps_summh		=	R4		// Interrupt only! don`t use if timer2 enabled!
+.def amps_samples_counter = R6	// Interrupt only! don`t use if timer2 enabled!
+.def amps_summl		=	R7		// Interrupt only! don`t use if timer2 enabled!
+.def amps_summh		=	R8		// Interrupt only! don`t use if timer2 enabled!
 .def flags			=	R5 // глобальные флаги
 .equ	zero_level	=	0
 
-.def last_period_start_time	=	R6 ; Время прошедшее с последнего начала периода, в интервалах по 65мс.
+.def last_period_start_time	=	R9 ; Время прошедшее с последнего начала периода, в интервалах по 65мс.
 
 .def ACCUM  = R16
 .def ACCUMH = R17
@@ -59,12 +60,12 @@ Amps_BCD:	.BYTE 3
 .endmacro
 
 .macro enable_timer
- set_io TCCR2A, 0b00000100
  set_io	TCNT2, 0x00 // Сброс таймера
+ set_io TCCR2B, 0b00000100
 .endmacro
 
 .macro disable_timer
- set_io TCCR2A, 0b00000000
+ set_io TCCR2B, 0b00000000
 .endmacro
 
 
@@ -102,6 +103,12 @@ RETI ;rjmp ANA_COMP ; Analog Comparator Handler
 RETI ;rjmp TWI ; 2-wire Serial Interface Handler
 RETI ;rjmp SPM_RDY ; Store Program Memory Ready Handler
 
+
+
+
+
+
+
 ;##############################################################################
 Iamps_measure: ; <timer2>
  PUSH	ACCUM
@@ -116,10 +123,11 @@ Iamps_measure: ; <timer2>
  BRNE	Iam_continue_measure
  disable_timer // Если количество измерений = 16 то самоостанавливаемся.
 
-Iam_continue_measure: 
+Iam_continue_measure:
 
  rcall Amps_measure		// Да, здесь мы можем это сделать. для упрощения обработки данных
  						// Затрагиваемые регистры - ACCUM, ACCUMH
+
 ; Накапливаем результат. переполнения быть не должно.
  ADD amps_summl, ACCUM
  ADC amps_summh, ACCUMH
@@ -130,6 +138,8 @@ Iam_continue_measure:
  OUT    SREG, ACCUM
  POP	ACCUM
 RETI
+
+
 
 
 
@@ -170,6 +180,12 @@ IAC_detector:
 RETI
 
 
+
+
+
+
+
+
 ;##############################################################################
 RESET: 
  ldi	ACCUM,	high(RAMEND)
@@ -184,7 +200,9 @@ RESET:
 //If DDxn is written logic one , Pxn is configured as an output. 
 //If DDxn is written logic zero, Pxn is configured as an input.
  set_io	DDRB,	0b11111111  //Все на вывод
- set_io	DDRC,	0b00111111  //старшие разряды не реализованы на выход
+ set_io	DDRC,	0b00111100  //старшие разряды не реализованы на выход
+							// PC0, PC1 - входы каналов тока и напряжения
+							// PC2 - вход канала температуры.
  set_io	DDRD,	0b11110111  //RX-TX настроены как ВыXОДЫ, при включении приемопередатчика их функция будет иметь приоритет над настройкой порта.
 
  set_io	EICRA,	0b00001100  // INT1 configured to rising edge
@@ -192,7 +210,7 @@ RESET:
 
   
  set_io TCCR1A, 0b00000000 // режим работы таймера - 0, Normal, Free running
- set_io TCCR1B, 0b00000010 // Прескалер = 8. 
+ set_io TCCR1B, 0b00000010 // Прескалер = 8. период переполнения - 65.536мс при тактовой частоте 8Мгц
  set_io TIMSK1, 0b00000001 // прерывание по переполнению
 
  set_io OCR2A,	77	// на частоте 8Мгц константа дает >16 прерываний за 10мс 
@@ -204,37 +222,19 @@ RESET:
 
  rcall	LCD_init
 
+//  rcall Volt_measure      	**** DEBUG ****
+//  rcall	LCD_output_volts	**** DEBUG ****
+  
+
+//  rcall Amps_measure			;**** DEBUG ****
+//  rcall	LCD_output_amps		;**** DEBUG ****
+  
+// llll:  rjmp llll				;**** DEBUG ****
+
  SEI
 
 // Основная программа.
 // ##############################
-
- rcall	LCD_goto_line1
-
- LDI	ACCUM, 0x20
- rcall	LCD_send_char
- 
- rcall Volt_measure
-
- LDI	XL, low(Volts_BCD)
- LDI	XH, high(Volts_BCD)
-
- rcall bin2bcd
-
- LD		ACCUM, -X
- ANDI	ACCUM, 0x0F
- SUBI	ACCUM, -48
- rcall	LCD_send_char
-
- LD		ACCUM, -X
- ANDI	ACCUM, 0x0F
- SUBI	ACCUM, -48
- rcall	LCD_send_char
-
- LD		ACCUM, -X
- ANDI	ACCUM, 0x0F
- SUBI	ACCUM, -48
- rcall	LCD_send_char
 
 MAIN_LOOP:
 
@@ -242,27 +242,39 @@ MAIN_LOOP:
  CPI	ACCUM, AC_timeout
  BRLO 	no_AC_timeout
 
-   CLR last_period_start_time
 ; Счетчик таймаута > 2 сек
 ; [ 
-   ;ограничить счет таймаута
-  set_reg last_period_start_time, AC_timeout
    ;отключить заряд					***** TODO *****
    ;выключить подсветку
-   disable_lcd_light
+  disable_lcd_light
    ;измерить напряжение
+  rcall	Volt_measure
    ;вывести напряжение на индикатор 
+  rcall	LCD_output_volts
    ;во втроую строку вывести "AC fail"
-   ;пауза 1 сек
+  rcall	LCD_output_acfail
+   ;пауза 200 мсек
+   
+  
+  ldi	XL,  low(1000) ; x100us
+  ldi	XH, high(1000) ; 2000 = 200ms
+  rcall LCD_wait_X
+   
+
+ ;ограничить счет таймаута
+  set_reg last_period_start_time, AC_timeout
+
    ;инкремент счетчика пауз         ***** TODO *****
    ;если счетчик пауз & 0x0F = 0	***** TODO *****
      ;[подать короткий сигнал]		***** TODO *****
  ;]
 ;
+  rjmp AC_timeout_check_end
+
 no_AC_timeout:
 ;включить подсветку
   enable_lcd_light
-  ;сброс счетчика пауз				***** TODO *****
+;сброс счетчика пауз				***** TODO *****
 
 AC_timeout_check_end:
 
@@ -270,7 +282,9 @@ AC_timeout_check_end:
   // Пришел сигнал начала периода
   CLI 
   disable_timer
-;	сбросить счетчик таймаута
+  
+; сбросить счетчик таймаута
+  CLR last_period_start_time
 
 ; +есть признак: 
 ; + [ остановить таймер измерения тока, запретить прерывания
@@ -292,7 +306,7 @@ AC_timeout_check_end:
 
   rcall Volt_measure
 
-;    суммировать измеренное напряжение
+;   суммировать измеренное напряжение
 ;	суммировать среднее значение тока
 ;	количество просуммированных элементов >= 16
 ;	 [ сбросить счетчик элементов
@@ -300,7 +314,13 @@ AC_timeout_check_end:
 ;	   средний ток больше 20мА - включить светодиод "заряд"
 ;       [вывести BCD-значения напряжения и тока в UART или SPI, опционально]
 ;	 ]
+  rcall	LCD_output_volts
 
+  mov	ACCUM , amps_summl
+  mov	ACCUMH, amps_summh
+  
+  rcall	LCD_output_amps
+  
 ; Подготовка к следующему измерению среднего тока за период.  
   CLR	amps_summh
   CLR	amps_summl
@@ -309,11 +329,11 @@ AC_timeout_check_end:
   clear_flag zero_level // сбрасываем признак начала периода, для дальнейшей обработки.
 
   enable_timer // запуск таймера интервалов измерения тока
-
+  
   rcall Iamps_measure // Этим мы начинаем первое измерение тока и одновременно разрешаем прерывание.
 ; *********** TODO ***********
 ;Еслит тут amps_summl или amps_summh больше минимального порога шума, это означает аварийное состояние - ток идет в цепи когда его НЕ ДОЛЖНО БЫТЬ.
-
+  
 no_zero_int: // продолжаем проверки дальше...
 
 SLEEP // безцельно крутится нечего, ждем следующего прерывания либо детектора начала периода либо детектора AC, либо прерывания измерения тока.

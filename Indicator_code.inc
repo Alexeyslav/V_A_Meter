@@ -102,6 +102,7 @@ LCD_init:
 
  LDI	ACCUM, 0x0C ; включить дисплей!
  rcall	LCD_send_cmd
+ rcall	LCD_wait_slow
 RET
 
 LCD_strobe:
@@ -122,7 +123,7 @@ LCD_send_data4b:   ; передача данных/команд индикатору в 4-битном режиме
  OR		ACCUM, tempi
  OUT	lcd_data_port, ACCUM
  rcall	LCD_strobe
-
+ 
  pop	ACCUM
  swap	ACCUM ; исходное значение восстановлено, и в старшей части находится младшая тетрада.
 
