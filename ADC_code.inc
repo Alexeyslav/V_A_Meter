@@ -33,14 +33,14 @@ Volt_measure:
  LDI	ACCUM,	Volt_input
  rcall	ADC_measure
 
- lsl	ACCUM     // 4-х кратный сдвиг влево, = умножение на 16
- rol	ACCUMH
- lsl	ACCUM
- rol	ACCUMH
- lsl	ACCUM
- rol	ACCUMH
- lsl	ACCUM
- rol	ACCUMH
+; lsl	ACCUM     // 4-х кратный сдвиг влево, = умножение на 16
+; rol	ACCUMH
+; lsl	ACCUM
+; rol	ACCUMH
+; lsl	ACCUM
+; rol	ACCUMH
+; lsl	ACCUM
+; rol	ACCUMH
 RET
 
 Amps_measure:
