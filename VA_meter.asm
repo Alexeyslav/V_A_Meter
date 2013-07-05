@@ -220,18 +220,9 @@ RESET:
  set_io TCCR2B, 0b00000000 // Прескалер = 0, таймер остановлен. Отсчет должен начатся по прерыванию ZERO_LEVEL, не раньше.
  set_io TIMSK2, 0b00000010 // прерывание по сравнению А
 
- rcall	ADC_init // Включение АЦП и его настройка
+ rcall	ADC_init 
 
  rcall	LCD_init
-
-//  rcall Volt_measure      	**** DEBUG ****
-//  rcall	LCD_output_volts	**** DEBUG ****
-  
-
-//  rcall Amps_measure			;**** DEBUG ****
-//  rcall	LCD_output_amps		;**** DEBUG ****
-  
-// llll:  rjmp llll				;**** DEBUG ****
 
  SEI
 
@@ -243,28 +234,40 @@ MAIN_LOOP:
  mov	ACCUM, last_period_start_time
  CPI	ACCUM, AC_timeout
  BRLO 	no_AC_timeout
-
-; Счетчик таймаута > 2 сек
-; [ 
+  
    ;отключить заряд					***** TODO *****
    ;выключить подсветку
   disable_lcd_light
    ;измерить напряжение
   rcall	Volt_measure
    ;вывести напряжение на индикатор 
+
+  lsl	ACCUM     // 4-х кратный сдвиг влево, = умножение на 16
+  rol	ACCUMH
+  lsl	ACCUM
+  rol	ACCUMH
+  lsl	ACCUM
+  rol	ACCUMH
+  lsl	ACCUM
+  rol	ACCUMH
+
   rcall	LCD_output_volts
    ;во втроую строку вывести "AC fail"
   rcall	LCD_output_acfail
    ;пауза 200 мсек
    
-  
+; Обернуть в макрос с автоматическим пересчетом из заданных милисекунд на основе константы единичной длительности  
   ldi	XL,  low(1000) ; x100us
   ldi	XH, high(1000) ; 2000 = 200ms
   rcall LCD_wait_X
    
 
- ;ограничить счет таймаута
+ ;Таймаут вышел, задержим счетчик чтобы он не переполнился! 
   set_reg last_period_start_time, AC_timeout
+
+  clr	summ_counter // сброс средних величин, после сбоя - накапливать их ЗАНОВО.
+  clr_to_ram Volts_summ
+  clr_to_ram Amps_summ
 
    ;инкремент счетчика пауз         ***** TODO *****
    ;если счетчик пауз & 0x0F = 0	***** TODO *****
